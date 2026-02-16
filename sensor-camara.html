@@ -906,25 +906,67 @@
         }
         
         // Configurar MediaPipe Hands
-        const hands = new Hands({
-            locateFile: (file) => {
-                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
-            }
-        });
+        // Configurar MediaPipe Hands
+        let hands = null;
         
-        hands.setOptions({
-            maxNumHands: 1,
-            modelComplexity: 1,
-            minDetectionConfidence: 0.7,
-            minTrackingConfidence: 0.7
-        });
+        function initializeMediaPipe() {
+            return new Promise((resolve, reject) => {
+                try {
+                    console.log('Inicializando MediaPipe Hands...');
+                    
+                    hands = new Hands({
+                        locateFile: (file) => {
+                            const url = `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                            console.log('Cargando:', url);
+                            return url;
+                        }
+                    });
+                    
+                    hands.setOptions({
+                        maxNumHands: 1,
+                        modelComplexity: 1,
+                        minDetectionConfidence: 0.5,
+                        minTrackingConfidence: 0.5
+                    });
+                    
+                    hands.onResults(onResults);
+                    
+                    console.log('✓ MediaPipe configurado');
+                    mediaPipeReady = true;
+                    resolve();
+                    
+                } catch (error) {
+                    console.error('Error inicializando MediaPipe:', error);
+                    reject(error);
+                }
+            });
+        }
         
-        hands.onResults(onResults);
+        // Inicializar MediaPipe al cargar la página
+        initializeMediaPipe()
+            .then(() => {
+                console.log('✓ MediaPipe listo');
+                statusDiv.innerHTML = '✅ <strong>SISTEMA LISTO</strong><br>Presiona el botón para iniciar la cámara';
+                statusDiv.style.color = '#00ff88';
+            })
+            .catch(error => {
+                console.error('Error cargando MediaPipe:', error);
+                statusDiv.innerHTML = '❌ <strong>ERROR cargando MediaPipe</strong><br>' +
+                                    '<small>Recarga la página (F5) o verifica tu conexión a internet</small>';
+                statusDiv.style.color = '#ff6666';
+            });
         
         // Botón de inicio
         startBtn.addEventListener('click', async () => {
             if (!isRunning) {
                 try {
+                    // Verificar que MediaPipe esté listo
+                    if (!mediaPipeReady || !hands) {
+                        statusDiv.innerHTML = '⏳ MediaPipe aún se está cargando...<br><small>Espera unos segundos e intenta de nuevo</small>';
+                        statusDiv.style.color = '#ffaa00';
+                        return;
+                    }
+                    
                     statusDiv.textContent = '📹 Solicitando acceso a la cámara...';
                     statusDiv.style.color = '#ffaa00';
                     
@@ -934,7 +976,6 @@
                     }
                     
                     // IMPORTANTE: Solicitar permisos PRIMERO con getUserMedia
-                    // Esto hace que aparezca el popup de permisos del navegador
                     console.log('Solicitando permisos de cámara...');
                     const testStream = await navigator.mediaDevices.getUserMedia({
                         video: {
@@ -945,24 +986,34 @@
                     });
                     
                     console.log('✓ Permisos obtenidos!');
+                    statusDiv.textContent = '✅ Permiso otorgado - Conectando con MediaPipe...';
                     
                     // Detener el stream temporal
                     testStream.getTracks().forEach(track => track.stop());
                     
+                    // Esperar un momento antes de iniciar MediaPipe
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
                     // Ahora sí, iniciar MediaPipe con permisos ya otorgados
-                    statusDiv.textContent = '⚙️ Inicializando MediaPipe...';
+                    statusDiv.textContent = '⚙️ Iniciando detección de gestos...';
                     
                     // Iniciar cámara con MediaPipe Camera
                     cameraObj = new Camera(videoElement, {
                         onFrame: async () => {
-                            await hands.send({ image: videoElement });
+                            if (hands) {
+                                await hands.send({ image: videoElement });
+                            }
                         },
                         width: 800,
                         height: 600
                     });
                     
+                    console.log('Iniciando MediaPipe Camera...');
+                    
                     // Iniciar cámara
                     await cameraObj.start();
+                    
+                    console.log('✓ Cámara iniciada');
                     
                     // Si llegamos aquí, funcionó
                     isRunning = true;
@@ -975,49 +1026,26 @@
                     
                 } catch (error) {
                     console.error('Error completo:', error);
+                    console.error('Tipo de error:', error.name);
+                    console.error('Stack:', error.stack);
                     
                     let errorMsg = '';
                     let solution = '';
                     
                     if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
                         errorMsg = '🚫 Permiso DENEGADO';
-                        solution = 'Debes hacer clic en "Permitir" cuando el navegador te lo pida.\n\nSi no apareció el mensaje, busca el ícono 🔒 en la barra de direcciones.';
+                        solution = 'Haz clic en "Permitir" cuando el navegador te lo pida. Busca el ícono 🔒 en la barra de direcciones.';
                     } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
                         errorMsg = '📹 NO se encontró cámara';
                         solution = 'Conecta una webcam o verifica que esté funcionando.';
                     } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
                         errorMsg = '⚠️ Cámara en uso por otra app';
                         solution = 'Cierra Zoom, Teams, Skype u otras apps de videoconferencia.';
-                    } else if (error.name === 'TypeError' && error.message.includes('Camera')) {
-                        errorMsg = '⚙️ Error de MediaPipe';
-                        solution = 'Recarga la página (F5) e intenta de nuevo.';
-                    } else {
-                        errorMsg = '❌ Error: ' + error.message;
-                        solution = 'Verifica que estés usando http://localhost:8000/sensor-camara.html';
-                    }
-                    
-                    statusDiv.innerHTML = `<strong>${errorMsg}</strong><br><small>${solution}</small>`;
-                    statusDiv.style.color = '#ff6666';
-                    
-                    alert(`❌ ERROR:\n\n${errorMsg}\n\n💡 SOLUCIÓN:\n${solution}`);
-                }
-            } else {
-                // Detener cámara
-                if (cameraObj && cameraObj.stop) {
-                    cameraObj.stop();
-                }
-                location.reload();
-            }
-        });
-        
-        // Mensaje de carga completada
-        setTimeout(() => {
-            const protocol = window.location.protocol;
-            const hostname = window.location.hostname;
-            
-            if (protocol === 'file:') {
-                // Abierto directamente como archivo
-                statusDiv.innerHTML = '⚠️ <strong>ADVERTENCIA: Archivo abierto localmente</strong><br>' +
+                    } else if (error.message && error.message.includes('Camera is not defined')) {
+                        errorMsg = '⚙️ Error: MediaPipe Camera no cargó';
+                        solution = 'Recarga la página (F5). Verifica tu conexión a internet.';
+                    } else if (error.name === 'TypeError') {
+           Ya no necesitamos este timeout porque initializeMediaPipe maneja el mensajetatusDiv.innerHTML = '⚠️ <strong>ADVERTENCIA: Archivo abierto localmente</strong><br>' +
                                     '<small>La cámara NO funciona con file://</small><br><br>' +
                                     '<strong>SOLUCIONES:</strong><br>' +
                                     '1️⃣ Ejecuta: <code>python servidor.py</code><br>' +

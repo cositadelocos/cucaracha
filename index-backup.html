@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador de Compuertas Lógicas - Sensor Cucarachas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+            padding: 20px;
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+            cursor: none;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at var(--mouse-x, 50%) var(--mouse-y, 50%), 
+                    transparent 0%, 
+                    rgba(0, 0, 0, 0.85) 300px,
+                    rgba(0, 0, 0, 0.95) 100%);
+            pointer-events: none;
+            z-index: 1;
+            transition: opacity 0.3s;
+        }
+        
+        .flashlight {
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            border-radius: 50%;
+            background: radial-gradient(circle, 
+                rgba(255, 255, 150, 0.4) 0%,
+                rgba(255, 255, 100, 0.2) 30%,
+                rgba(100, 200, 255, 0.1) 50%,
+                transparent 70%);
+            pointer-events: none;
+            z-index: 2;
+            transform: translate(-50%, -50%);
+            filter: blur(20px);
+            box-shadow: 0 0 100px 50px rgba(255, 255, 150, 0.3);
+        }
+        
+        .custom-cursor {
+            position: fixed;
+            width: 30px;
+            height: 30px;
+            border: 2px solid rgba(255, 255, 150, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 10000;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s ease;
+            box-shadow: 0 0 20px rgba(255, 255, 150, 0.5),
+                        inset 0 0 10px rgba(255, 255, 150, 0.3);
+        }
+        
+        .custom-cursor::before {
+            content: '🔦';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 16px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(20, 20, 35, 0.95);
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8),
+                        inset 0 0 50px rgba(100, 150, 255, 0.1);
+            position: relative;
+            z-index: 3;
+            border: 1px solid rgba(100, 150, 255, 0.2);
+        }ffd700;
+            margin-bottom: 10px;
+            font-size: 2em;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5),
+                         0 0 40px rgba(255, 215, 0, 0.3);
+            animation: glow 2s ease-in-out infinite alternate;
+        }
+        
+        @keyframes glow {
+            from { text-shadow: 0 0 20px rgba(255, 215, 0, 0.5), 0 0 40px rgba(255, 215, 0, 0.3); }
+            to { text-shadow: 0 0 30px rgba(255, 215, 0, 0.8), 0 0 60px rgba(255, 215, 0, 0.5); }
+        }
+        
+        .subtitle {
+            text-align: center;
+            color: #87ceeb;
+            margin-bottom: 30px;
+            font-style: italic;
+            text-shadow: 0 0 10px rgba(135, 206, 235, 0.5)
+            text-align: rgba(30, 30, 50, 0.8);
+            border-radius: 8px;
+            border-left: 4px solid #00d4ff;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s;
+        }
+        
+        .gate-section:hover {
+            background: rgba(40, 40, 60, 0.9);
+            box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .gate-title {
+            font-size: 1.3em;
+            color: #00d4rgba(15, 15, 30, 0.9);
+            box-shadow: 0 2px 8px rgba(0, 212, 255, 0.2);
+        }
+        
+        th {
+            background: linear-gradient(135deg, #0066cc 0%, #0088ff 100%);
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(255, 255, 255, 0.5);
+        }
+        
+        td {
+            padding: 10px;
+            text-align: center;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            color: #e0e0e0;
+            transition: all 0.2s;
+        }
+        
+        tr:hover td {
+            background: rgba(0, 100, 200, 0.2);
+            color: #ffffff;
+            box-shadow: 0 0 15px rgba(0, 212, 255, 0.3)px rgba(0,0,0,0.1);
+        }
+        
+        th {
+            background: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: center;
+            font-weight:rgba(60, 40, 20, 0.8);
+            border-left-color: #ffa500;
+            margin-top: 40px;
+            box-shadow: 0 0 30px rgba(255, 165, 0, 0.3);
+        }
+        
+        .circuit-section:hover {
+            background: rgba(80, 50, 25, 0.9);
+        }
+        
+        .circuit-title {
+            color: #ffa500;
+            text-shadow:rgba(20, 50, 30, 0.8);
+            border-radius: 8px;
+            border-left: 4px solid #00ff88;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.2);
+        }
+        
+        .analysis:hover {
+            background: rgba(30, 60, 40, 0.9);
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.4);
+        }
+        
+        .analysis h3 {
+            color: #00ff88;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        .analysis ul {
+            list-style-type: none;
+            padding-left: 0;
+        }
+        
+        .analysis li {
+            padding: 8px 0;
+            color: #b8f3d8;
+        }
+        
+        .analysis li:before {
+            content: "✓ ";
+            color: #00ff88;
+            font-weight: bold;
+            margin-right: 8px;
+            text-shadow: 0 0 5px rgba(0, 255, 136, 0.5);
+        }
+        
+        .analysis p {
+            color: #b8f3d8
+        .analysis h3 {
+            color: #155724;
+            margin-bottom: 15px;
+        }
+        
+        .analysis ul {rgba(255, 215, 0, 0.2);
+            font-weight: bold;
+            color: #ffd700none;
+            padding-leftrgba(20, 40, 70, 0.8);
+            border-radius: 8px;
+            border-left: 4px solid #0099ff;
+            box-shadow: 0 0 20px rgba(0, 153, 255, 0.2);
+        }
+        
+        .input-section:hover {
+            background: rgba(30, 50, 80, 0.9);
+            box-shadow: 0 0 30px rgba(0, 153, 255, 0.4);
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: inline-block;
+            width: 200px;
+            font-weight: bold;
+            color: #00ccff;
+            text-shadow: 0 0 5px rgba(0, 204, 255, 0.3);
+        }
+        
+        select {
+            padding: 8px 15px;
+            border: 2px solid #00ccff;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            background: rgba(10, 20, 40, 0.9);
+            color: #e0e0e0;
+            transition: all 0.3s;
+        }
+        
+        select:hover {
+            border-color: #00ffff;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.3);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #0066cc 0%, #00aaff 100%);
+            color: white;
+            padding: 12px 30px;
+            border: nonergba(10, 20, 40, 0.9);
+            border-radius: 5px;
+            font-size: 1.2em;
+            text-align: center;
+            font-weight: bold;
+            color: #00ffff;
+            border: 2px solid #00ccff;
+            box-shadow: 0 0 20px rgba(0, 204, 255, 0.3)
+            transition: all 0.3s;
+            box-shadow: 0 5px 15px rgba(0, 102, 204, 0.4);
+        }
+        
+      
+    <div class="flashlight"></div>
+    <div class="custom-cursor"></div>  button:hover {
+            background: linear-gradient(135deg, #0088ff 0%, #00ccff 100%);
+            box-shadow: 0 8px 25px rgba(0, 204, 255, 0.6);
+            transform: translateY(-2px)
+        
+        select {
+            padding: 8px 15px;
+            border: 2px solid #667eea;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        
+        button {
+            background: #667eea;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1em;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: background 0.3s;
+        }
+        
+        button:hover {
+            background: #764ba2;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            font-size: 1.2em;
+            text-align: center;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 Simulador de Compuertas Lógicas</h1>
+        <p class="subtitle">Proyecto: Sensor para Eliminación Selectiva de Cucarachas</p>
+        
+        <!-- Botones para ir a simuladores -->
+        <div style="text-align: center; margin: 30px 0; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
+            <a href="simulador.html" style="text-decoration: none;">
+                <button style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                               color: white; 
+                               padding: 20px 40px; 
+                               border: none; 
+                               border-radius: 50px; 
+                               font-size: 1.3em; 
+                               cursor: pointer; 
+                               box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+                               transition: all 0.3s ease;
+                               font-weight: bold;">
+                    🎮 SIMULADOR INTERACTIVO
+                </button>
+            </a>
+            <a href="sensor-camara.html" style="text-decoration: none;">
+                <button style="background: linear-gradient(135deg, #00d4ff 0%, #00ff88 100%); 
+                               color: #0f0f1e; 
+                               padding: 20px 40px; 
+                               border: none; 
+                               border-radius: 50px; 
+                               font-size: 1.3em; 
+                               cursor: pointer; 
+                               box-shadow: 0 5px 15px rgba(0, 255, 136, 0.4);
+                               transition: all 0.3s ease;
+                               font-weight: bold;">
+                    📹 SENSOR DE CÁMARA CON GESTOS
+                </button>
+            </a>
+        </div>
+        
+        <!-- Compuerta AND -->
+        <div class="gate-section">
+            <div class="gate-title">Compuerta AND</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>A</th>
+                        <th>B</th>
+                        <th>Salida (A AND B)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-and"></tbody>
+            </table>
+        </div>
+        
+        <!-- Compuerta OR -->
+        <div class="gate-section">
+            <div class="gate-title">Compuerta OR</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>A</th>
+                        <th>B</th>
+                        <th>Salida (A OR B)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-or"></tbody>
+            </table>
+        </div>
+        
+        <!-- Compuerta NOT -->
+        <div class="gate-section">
+            <div class="gate-title">Compuerta NOT</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>A</th>
+                        <th>Salida (NOT A)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-not"></tbody>
+            </table>
+        </div>
+        
+        <!-- Compuerta NAND -->
+        <div class="gate-section">
+            <div class="gate-title">Compuerta NAND</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>A</th>
+                        <th>B</th>
+                        <th>Salida (A NAND B)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-nand"></tbody>
+            </table>
+        </div>
+        
+        <!-- Compuerta NOR -->
+        <div class="gate-section">
+            <div class="gate-title">Compuerta NOR</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>A</th>
+                        <th>B</th>
+                        <th>Salida (A NOR B)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-nor"></tbody>
+            </table>
+        </div>
+        
+        <!-- Compuerta XOR -->
+        <div class="gate-section">
+            <div class="gate-title">Compuerta XOR</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>A</th>
+                        <th>B</th>
+                        <th>Salida (A XOR B)</th>
+                    </tr>
+                </thead>
+                <tbody id="table-xor"></tbody>
+            </table>
+        </div>
+        
+        <!-- Circuito Combinacional -->
+        <div class="gate-section circuit-section">
+            <div class="gate-title circuit-title">🔧 Circuito Combinacional: (A AND B) AND (NOT C)</div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>A</th>
+                        <th>B</th>
+                        <th>C</th>
+                        <th>A AND B</th>
+                        <th>NOT C</th>
+                        <th class="highlight">SALIDA FINAL</th>
+                    </tr>
+                </thead>
+                <tbody id="table-circuit"></tbody>
+            </table>
+        </div>
+        
+        <!-- Análisis -->
+        <div class="analysis">
+            <h3>📊 Análisis del Circuito para Sensor de Cucarachas</h3>
+            <p><strong>La salida es 1 (activación) solo cuando:</strong></p>
+            <ul>
+                <li>A = 1 AND B = 1 (ambos sensores confirman presencia de cucaracha)</li>
+                <li>C = 0 (NO se detecta otro tipo de animal)</li>
+            </ul>
+            <p style="margin-top: 15px;"><strong>Esto garantiza que el sistema SOLO active cuando:</strong></p>
+            <ul>
+           Efecto de linterna siguiendo el cursor
+        let mouseX = 0;
+        let mouseY = 0;
+        
+        document.addEventListener('mousemove', (e) => {
+            mouseX = e.clientX;
+            mouseY = e.clientY;
+            
+            // Actualizar posición de la linterna
+            const flashlight = document.querySelector('.flashlight');
+            flashlight.style.left = mouseX + 'px';
+            flashlight.style.top = mouseY + 'px';
+            
+            // Actualizar cursor personalizado
+            const cursor = document.querySelector('.custom-cursor');
+            cursor.style.left = mouseX + 'px';
+            cursor.style.top = mouseY + 'px';
+            
+            // Actualizar variables CSS para el overlay
+            document.documentElement.style.setProperty('--mouse-x', mouseX + 'px');
+            document.documentElement.style.setProperty('--mouse-y', mouseY + 'px');
+        });
+        
+        // Agregar efecto de insectos volando aleatorios
+        function createInsectEffect() {
+            const insects = ['🪲', '🦗', '🪳', '🦟'];
+            const insect = document.createElement('div');
+            insect.textContent = insects[Math.floor(Math.random() * insects.length)];
+            insect.style.position = 'fixed';
+            insect.style.left = Math.random() * window.innerWidth + 'px';
+            insect.style.top = Math.random() * window.innerHeight + 'px';
+            insect.style.fontSize = '20px';
+            insect.style.opacity = '0.3';
+            insect.style.pointerEvents = 'none';
+            insect.style.zIndex = '0';
+            insect.style.animation = `floatInsect ${5 + Math.random() * 5}s linear`;
+            
+            document.body.appendChild(insect);
+            
+            setTimeout(() => insect.remove(), 10000);
+        }
+        
+        // Crear efecto de insectos periódicamente
+        setInterval(createInsectEffect, 3000);
+        
+        // Agregar animación CSS para insectos
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes floatInsect {
+                0% {
+                    transform: translate(0, 0) rotate(0deg);
+                    opacity: 0;
+                }
+                10% {
+                    opacity: 0.3;
+                }
+                90% {
+                    opacity: 0.3;
+                }
+                100% {
+                    transform: translate(${Math.random() * 200 - 100}px, ${Math.random() * 200 - 100}px) rotate(360deg);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+        
+        //      <li>Se confirma con certeza la presencia de una cucaracha (doble verificación A y B)</li>
+                <li>NO hay otros animales en el área (evita daños colaterales)</li>
+                <li>Funciona como sistema de seguridad para eliminación selectiva</li>
+            </ul>
+        </div>
+        
+        <!-- Probador Interactivo -->
+        <div class="input-section">
+            <h3>🧪 Probador Interactivo del Circuito</h3>
+            <div class="input-group">
+                <label>Sensor A (Cucaracha Detectada):</label>
+                <select id="input-a">
+                    <option value="0">0 (No)</option>
+                    <option value="1">1 (Sí)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Sensor B (Cucaracha Confirmada):</label>
+                <select id="input-b">
+                    <option value="0">0 (No)</option>
+                    <option value="1">1 (Sí)</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label>Sensor C (Otro Animal Detectado):</label>
+                <select id="input-c">
+                    <option value="0">0 (No)</option>
+                    <option value="1">1 (Sí)</option>
+                </select>
+            </div>
+            <button onclick="calcularCircuito()">Calcular Resultado</button>
+            <div class="result" id="resultado"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Compuertas lógicas
+        const AND = (a, b) => a && b;
+        const OR = (a, b) => a || b;
+        const NOT = (a) => !a;
+        const NAND = (a, b) => !(a && b);
+        const NOR = (a, b) => !(a || b);
+        const XOR = (a, b) => (a || b) && !(a && b);
+        
+        const toBinary = (bool) => bool ? 1 : 0;
+        
+        // Generar tablas de verdad
+        function generarTabla2Entradas(tableId, operacion) {
+            const tbody = document.getElementById(tableId);
+            for (let a = 0; a <= 1; a++) {
+                for (let b = 0; b <= 1; b++) {
+                    const resultado = operacion(a, b);
+                    const row = tbody.insertRow();
+                    row.insertCell(0).textContent = a;
+                    row.insertCell(1).textContent = b;
+                    row.insertCell(2).textContent = toBinary(resultado);
+                }
+            }
+        }
+        
+        function generarTablaNOT() {
+            const tbody = document.getElementById('table-not');
+            for (let a = 0; a <= 1; a++) {
+                const resultado = NOT(a);
+                const row = tbody.insertRow();
+                row.insertCell(0).textContent = a;
+                row.insertCell(1).textContent = toBinary(resultado);
+            }
+        }
+        
+        function generarTablaCircuito() {
+            const tbody = document.getElementById('table-circuit');
+            for (let a = 0; a <= 1; a++) {
+                for (let b = 0; b <= 1; b++) {
+                    for (let c = 0; c <= 1; c++) {
+                        const andAB = AND(a, b);
+                        const notC = NOT(c);
+                        const salida = AND(andAB, notC);
+                        
+                        const row = tbody.insertRow();
+                        row.insertCell(0).textContent = a;
+                        row.insertCell(1).textContent = b;
+                        row.insertCell(2).textContent = c;
+                        row.insertCell(3).textContent = toBinary(andAB);
+                        row.insertCell(4).textContent = toBinary(notC);
+                        const celdaSalida = row.insertCell(5);
+                        celdaSalida.textContent = toBinary(salida);
+                        if (salida) {
+                            celdaSalida.style.background = '#90EE90';
+                            celdaSalida.style.fontWeight = 'bold';
+                        }
+                    }
+                }
+            }
+        }
+        
+        function calcularCircuito() {
+            const a = parseInt(document.getElementById('input-a').value);
+            const b = parseInt(document.getElementById('input-b').value);
+            const c = parseInt(document.getElementById('input-c').value);
+            
+            const andAB = AND(a, b);
+            const notC = NOT(c);
+            const salida = AND(andAB, notC);
+            
+            const resultDiv = document.getElementById('resultado');
+            resultDiv.innerHTML = `
+                <div style="margin-bottom: 10px;">
+                    A AND B = ${toBinary(andAB)} | NOT C = ${toBinary(notC)}
+                </div>
+                <div style="font-size: 1.5em; ${salida ? 'color: #28a745;' : 'color: #dc3545;'}">
+                    SALIDA: ${toBinary(salida)}
+                </div>
+                <div style="margin-top: 10px; font-size: 0.9em; font-weight: normal;">
+                    ${salida ? 
+                        '✅ SISTEMA ACTIVADO - Eliminar cucaracha de forma segura' : 
+                        '❌ SISTEMA DESACTIVADO - No cumple condiciones de seguridad'}
+                </div>
+            `;
+        }
+        
+        // Inicializar todas las tablas al cargar la página
+        window.onload = function() {
+            generarTabla2Entradas('table-and', AND);
+            generarTabla2Entradas('table-or', OR);
+            generarTablaNOT();
+            generarTabla2Entradas('table-nand', NAND);
+            generarTabla2Entradas('table-nor', NOR);
+            generarTabla2Entradas('table-xor', XOR);
+            generarTablaCircuito();
+            
+            // Mostrar también en consola
+            console.log('Simulador de Compuertas Lógicas cargado correctamente');
+        };
+    </script>
+</body>
+</html>

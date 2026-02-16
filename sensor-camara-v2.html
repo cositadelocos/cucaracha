@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🪳 Sensor de Cucarachas con IA</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            text-align: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-bottom: 2px solid #00ff88;
+        }
+        
+        h1 {
+            font-size: 2em;
+            text-shadow: 0 0 20px #00ff88;
+            color: #00ff88;
+        }
+        
+        .subtitle {
+            font-size: 1em;
+            color: #b0b0b0;
+            margin-top: 10px;
+        }
+        
+        .container {
+            display: flex;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+            min-height: calc(100vh - 120px);
+        }
+        
+        .video-container {
+            flex: 2;
+            position: relative;
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+        
+        #video {
+            display: none;
+        }
+        
+        #canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .controls {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-height: calc(100vh - 160px);
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding-right: 10px;
+        }
+        
+        .controls::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        .controls::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+        }
+        
+        .controls::-webkit-scrollbar-thumb {
+            background: #00ff88;
+            border-radius: 4px;
+        }
+        
+        .controls::-webkit-scrollbar-thumb:hover {
+            background: #00cc70;
+        }
+        
+        .panel {
+            background: rgba(0, 0, 0, 0.4);
+            border: 2px solid #00ff88;
+            border-radius: 10px;
+            padding: 20px;
+        }
+        
+        .panel-title {
+            color: #00ff88;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+            text-shadow: 0 0 10px #00ff88;
+        }
+        
+        #startBtn {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.2em;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #00ff88 0%, #00d68f 100%);
+            color: #000;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        #startBtn:hover {
+            transform: scale(1.05);
+        }
+        
+        #status {
+            text-align: center;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            margin-top: 10px;
+            color: #ffaa00;
+        }
+        
+        .sensor-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .sensor-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 5px;
+        }
+        
+        .sensor-led {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .sensor-led.off {
+            background: #333;
+            box-shadow: none;
+        }
+        
+        .sensor-label {
+            flex: 1;
+            font-weight: bold;
+        }
+        
+        #animalDisplay {
+            text-align: center;
+            font-size: 3em;
+            padding: 30px;
+            min-height: 120px;
+        }
+        
+        #gestureStatus {
+            text-align: center;
+            padding: 10px;
+            font-size: 1em;
+            color: #00ff88;
+        }
+        
+        .nav-button {
+            padding: 10px 20px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid #00ff88;
+            color: #00ff88;
+            text-decoration: none;
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+        
+        .nav-button:hover {
+            background: rgba(0, 255, 136, 0.2);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🪳 SENSOR DE CUCARACHAS CON IA</h1>
+        <p class="subtitle">Detección de Gestos con MediaPipe Hands</p>
+        <a href="index.html" class="nav-button">← Volver al Inicio</a>
+    </div>
+    
+    <div class="container">
+        <div class="video-container">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div class="controls">
+            <div class="panel">
+                <button id="startBtn">📹 INICIAR CÁMARA</button>
+                <div id="status">⏳ Cargando MediaPipe...</div>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-title">🎯 GESTO DETECTADO</div>
+                <div id="animalDisplay">Esperando...</div>
+                <div id="gestureStatus">Muestra un gesto con tu mano</div>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-title">⚡ SENSORES LÓGICOS</div>
+                <div class="sensor-panel">
+                    <div class="sensor-item">
+                        <div class="sensor-led off" id="ledA"></div>
+                        <div class="sensor-label">A: Detección</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-led off" id="ledB"></div>
+                        <div class="sensor-label">B: Confirmación</div>
+                    </div>
+                    <div class="sensor-item">
+                        <div class="sensor-led off" id="ledC"></div>
+                        <div class="sensor-label">C: Otro Animal</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="panel">
+                <div class="panel-title">📊 MAPEO DE GESTOS</div>
+                <div style="font-size: 1em; line-height: 2; color: #ffffff; font-weight: 500;">
+                    <div style="padding: 5px 0; border-bottom: 1px solid rgba(0,255,136,0.2);">🐭 <strong>0 dedos</strong> (puño) = Ratón</div>
+                    <div style="padding: 5px 0; border-bottom: 1px solid rgba(0,255,136,0.2);">🐕 <strong>1 dedo</strong> = Perro</div>
+                    <div style="padding: 5px 0; border-bottom: 1px solid rgba(0,255,136,0.2);">🐱 <strong>2 dedos</strong> = Gato</div>
+                    <div style="padding: 5px 0; border-bottom: 1px solid rgba(255,0,0,0.3); background: rgba(255,0,0,0.1);">🪳 <strong style="color: #ff6666;">3 dedos</strong> = CUCARACHA ⚡</div>
+                    <div style="padding: 5px 0; border-bottom: 1px solid rgba(0,255,136,0.2);">🦎 <strong>4 dedos</strong> = Lagartija</div>
+                    <div style="padding: 5px 0; border-bottom: 1px solid rgba(0,255,136,0.2);">🐦 <strong>5 dedos</strong> = Pájaro</div>
+                    <div style="padding: 5px 0;">🦗 <strong>Solo pulgar</strong> = Grillo</div>
+                </div>
+            </div>
+            
+            <div class="panel" style="background: rgba(0, 100, 200, 0.2); border-color: #0099ff;">
+                <div class="panel-title" style="color: #0099ff;">ℹ️ INSTRUCCIONES</div>
+                <div style="font-size: 0.95em; line-height: 1.8; color: #e0e0e0;">
+                    <p style="margin-bottom: 10px;">👉 <strong>Cómo usar:</strong></p>
+                    <ol style="padding-left: 20px; margin: 0;">
+                        <li style="margin-bottom: 8px;">Presiona el botón verde para activar la cámara</li>
+                        <li style="margin-bottom: 8px;">Muestra tu mano frente a la cámara</li>
+                        <li style="margin-bottom: 8px;">Levanta el número de dedos según el animal</li>
+                        <li style="margin-bottom: 8px;">El sistema detectará automáticamente el gesto</li>
+                    </ol>
+                    <p style="margin-top: 15px; padding: 10px; background: rgba(255, 0, 0, 0.2); border-left: 3px solid #ff6666; border-radius: 5px;">
+                        ⚠️ <strong>¡3 dedos activa la eliminación!</strong><br>
+                        Los sensores A y B se encenderán cuando detectes una cucaracha.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MediaPipe Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <script>
+        const videoElement = document.getElementById('video');
+        const canvasElement = document.getElementById('canvas');
+        const canvasCtx = canvasElement.getContext('2d');
+        const startBtn = document.getElementById('startBtn');
+        const statusDiv = document.getElementById('status');
+        const animalDisplay = document.getElementById('animalDisplay');
+        const gestureStatus = document.getElementById('gestureStatus');
+        
+        let isRunning = false;
+        let cameraObj = null;
+        let hands = null;
+        let mediaPipeReady = false;
+        
+        // Sensores
+        let sensorA = 0;
+        let sensorB = 0;
+        let sensorC = 0;
+        
+        // Mapa de gestos a animales
+        const animalMap = {
+            0: { emoji: '🐭', name: 'Ratón', type: 'other' },
+            1: { emoji: '🐕', name: 'Perro', type: 'other' },
+            2: { emoji: '🐱', name: 'Gato', type: 'other' },
+            3: { emoji: '🪳', name: 'CUCARACHA', type: 'cockroach' },
+            4: { emoji: '🦎', name: 'Lagartija', type: 'other' },
+            5: { emoji: '🐦', name: 'Pájaro', type: 'other' },
+            'thumb': { emoji: '🦗', name: 'Grillo', type: 'other' }
+        };
+        
+        let currentAnimal = null;
+        
+        // Inicializar MediaPipe
+        async function initializeMediaPipe() {
+            try {
+                console.log('🔧 Inicializando MediaPipe Hands...');
+                statusDiv.innerHTML = '⏳ Cargando MediaPipe...';
+                
+                hands = new Hands({
+                    locateFile: (file) => {
+                        const url = `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                        console.log('📦 Cargando:', file);
+                        return url;
+                    }
+                });
+                
+                hands.setOptions({
+                    maxNumHands: 1,
+                    modelComplexity: 0, // Más rápido
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+                
+                hands.onResults(onResults);
+                
+                mediaPipeReady = true;
+                console.log('✅ MediaPipe LISTO');
+                statusDiv.innerHTML = '✅ <strong>SISTEMA LISTO</strong><br>Presiona el botón para iniciar';
+                statusDiv.style.color = '#00ff88';
+                
+            } catch (error) {
+                console.error('❌ Error inicializando MediaPipe:', error);
+                statusDiv.innerHTML = '❌ <strong>ERROR</strong><br>No se pudo cargar MediaPipe<br><small>Recarga la página (F5)</small>';
+                statusDiv.style.color = '#ff6666';
+            }
+        }
+        
+        // Contar dedos
+        function contarDedos(landmarks) {
+            const dedos = [0, 0, 0, 0, 0];
+            
+            // Pulgar (comparar X)
+            if (landmarks[4].x < landmarks[3].x) {
+                dedos[0] = 1;
+            }
+            
+            // Otros dedos (comparar Y)
+            const tips = [8, 12, 16, 20];
+            const pips = [6, 10, 14, 18];
+            
+            for (let i = 0; i < 4; i++) {
+                if (landmarks[tips[i]].y < landmarks[pips[i]].y) {
+                    dedos[i + 1] = 1;
+                }
+            }
+            
+            return dedos;
+        }
+        
+        // Actualizar sensores
+        function updateSensors() {
+            const ledA = document.getElementById('ledA');
+            const ledB = document.getElementById('ledB');
+            const ledC = document.getElementById('ledC');
+            
+            ledA.className = sensorA === 1 ? 'sensor-led' : 'sensor-led off';
+            ledB.className = sensorB === 1 ? 'sensor-led' : 'sensor-led off';
+            ledC.className = sensorC === 1 ? 'sensor-led' : 'sensor-led off';
+        }
+        
+        // Procesar resultados
+        function onResults(results) {
+            // Ajustar tamaño del canvas
+            canvasElement.width = results.image.width;
+            canvasElement.height = results.image.height;
+            
+            // Limpiar y dibujar video
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                const landmarks = results.multiHandLandmarks[0];
+                
+                // Dibujar mano
+                drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 3 });
+                drawLandmarks(canvasCtx, landmarks, { color: '#FF0000', lineWidth: 2, radius: 4 });
+                
+                // Contar dedos
+                const dedos = contarDedos(landmarks);
+                const total = dedos.reduce((a, b) => a + b, 0);
+                
+                // Detectar gesto
+                let gestureKey = total;
+                
+                // Caso especial: solo pulgar
+                if (total === 1 && dedos[0] === 1) {
+                    gestureKey = 'thumb';
+                }
+                
+                // Obtener animal
+                const animal = animalMap[gestureKey];
+                
+                if (animal) {
+                    animalDisplay.textContent = animal.emoji;
+                    gestureStatus.textContent = `${animal.name} (${total} dedo${total !== 1 ? 's' : ''})`;
+                    
+                    // Actualizar sensores
+                    if (animal.type === 'cockroach') {
+                        sensorA = 1; // Detectado
+                        sensorB = 1; // Confirmado
+                        sensorC = 0; // No es otro
+                        gestureStatus.style.color = '#ff0000';
+                        gestureStatus.textContent = '⚠️ ¡CUCARACHA DETECTADA! ⚠️';
+                    } else {
+                        sensorA = 0;
+                        sensorB = 0;
+                        sensorC = 1; // Es otro animal
+                        gestureStatus.style.color = '#00ff88';
+                    }
+                    
+                    updateSensors();
+                }
+                
+            } else {
+                animalDisplay.textContent = '👋';
+                gestureStatus.textContent = 'Esperando mano...';
+                gestureStatus.style.color = '#b0b0b0';
+                
+                // Reset sensores
+                sensorA = 0;
+                sensorB = 0;
+                sensorC = 0;
+                updateSensors();
+            }
+            
+            canvasCtx.restore();
+        }
+        
+        // Botón iniciar/detener
+        startBtn.addEventListener('click', async () => {
+            if (!isRunning) {
+                try {
+                    // Verificar MediaPipe
+                    if (!mediaPipeReady || !hands) {
+                        statusDiv.innerHTML = '⏳ MediaPipe aún cargando...';
+                        statusDiv.style.color = '#ffaa00';
+                        return;
+                    }
+                    
+                    statusDiv.textContent = '📹 Solicitando cámara...';
+                    statusDiv.style.color = '#ffaa00';
+                    
+                    // Verificar soporte
+                    if (!navigator.mediaDevices?.getUserMedia) {
+                        throw new Error('getUserMedia no soportado');
+                    }
+                    
+                    // Solicitar permisos primero
+                    console.log('🎥 Solicitando permisos...');
+                    const testStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 640 },
+                            height: { ideal: 480 }
+                        }
+                    });
+                    
+                    console.log('✅ Permisos obtenidos');
+                    testStream.getTracks().forEach(track => track.stop());
+                    
+                    // Espera breve
+                    await new Promise(r => setTimeout(r, 300));
+                    
+                    statusDiv.textContent = '⚙️ Iniciando MediaPipe Camera...';
+                    
+                    // Iniciar MediaPipe Camera
+                    cameraObj = new Camera(videoElement, {
+                        onFrame: async () => {
+                            if (hands) {
+                                await hands.send({ image: videoElement });
+                            }
+                        },
+                        width: 640,
+                        height: 480
+                    });
+                    
+                    await cameraObj.start();
+                    
+                    // Éxito
+                    isRunning = true;
+                    startBtn.textContent = '⏹️ DETENER CÁMARA';
+                    startBtn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%)';
+                    statusDiv.innerHTML = '✅ <strong>CÁMARA ACTIVA</strong>';
+                    statusDiv.style.color = '#00ff88';
+                    
+                    console.log('✅ Sistema iniciado completamente');
+                    
+                } catch (error) {
+                    console.error('❌ Error:', error);
+                    
+                    let msg = '❌ Error desconocido';
+                    let solution = 'Recarga la página (F5)';
+                    
+                    if (error.name === 'NotAllowedError') {
+                        msg = '🚫 Permiso DENEGADO';
+                        solution = 'Haz clic en "Permitir" en el navegador';
+                    } else if (error.name === 'NotFoundError') {
+                        msg = '📹 Sin cámara';
+                        solution = 'Conecta una webcam';
+                    } else if (error.name === 'NotReadableError') {
+                        msg = '⚠️ Cámara en uso';
+                        solution = 'Cierra otras apps de video';
+                    } else if (error.message?.includes('Camera')) {
+                        msg = '⚙️ Error de MediaPipe Camera';
+                        solution = 'Recarga la página (F5)';
+                    }
+                    
+                    statusDiv.innerHTML = `<strong>${msg}</strong><br><small>${solution}</small>`;
+                    statusDiv.style.color = '#ff6666';
+                    
+                    alert(`${msg}\n\n💡 SOLUCIÓN:\n${solution}`);
+                }
+            } else {
+                location.reload();
+            }
+        });
+        
+        // Inicializar al cargar
+        window.addEventListener('load', () => {
+            initializeMediaPipe();
+        });
+    </script>
+</body>
+</html>
