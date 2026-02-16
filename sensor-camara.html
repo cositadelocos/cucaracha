@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sensor de Cámara - Detección de Cucarachas por Gestos</title>
+    
+    <!-- MediaPipe Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 100%);
+            color: white;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            color: #00ff88;
+            text-shadow: 0 0 20px rgba(0, 255, 136, 0.6);
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #87ceeb;
+            font-size: 1.1em;
+        }
+        
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 212, 255, 0.2);
+            color: #00d4ff;
+            padding: 10px 20px;
+            border: 2px solid #00d4ff;
+            border-radius: 25px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .back-button:hover {
+            background: #00d4ff;
+            color: #0f0f1e;
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+        
+        .main-container {
+            display: grid;
+            grid-template-columns: 300px 1fr 350px;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        /* Panel Izquierdo - Instrucciones */
+        .instructions-panel {
+            background: rgba(20, 20, 40, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        .panel-title {
+            font-size: 1.5em;
+            color: #00ff88;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        
+        .gesture-guide {
+            background: rgba(0, 100, 150, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-left: 4px solid #00d4ff;
+        }
+        
+        .gesture-guide h3 {
+            color: #00d4ff;
+            font-size: 1.1em;
+            margin-bottom: 10px;
+        }
+        
+        .gesture-emoji {
+            font-size: 3em;
+            text-align: center;
+            margin: 10px 0;
+        }
+        
+        .gesture-desc {
+            color: #b0b0b0;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+        
+        /* Área Central - Cámara */
+        .camera-section {
+            background: rgba(20, 20, 40, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            max-width: 800px;
+            height: 600px;
+            margin: 0 auto;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 3px solid #00ff88;
+            box-shadow: 0 0 30px rgba(0, 255, 136, 0.3);
+        }
+        
+        .input_video {
+            display: none;
+        }
+        
+        .output_canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 0, 0.03) 2px, rgba(0, 255, 0, 0.03) 4px),
+                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0, 255, 0, 0.03) 2px, rgba(0, 255, 0, 0.03) 4px);
+            pointer-events: none;
+        }
+        
+        .camera-hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            text-shadow: 0 0 5px #00ff00;
+            z-index: 100;
+        }
+        
+        #gesture-status {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: #00ff00;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.3em;
+            font-weight: bold;
+            text-shadow: 0 0 10px #00ff00;
+            border: 2px solid #00ff00;
+            z-index: 100;
+        }
+        
+        .elimination-zone {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            border: 3px dashed rgba(255, 0, 0, 0.5);
+            border-radius: 50%;
+            pointer-events: none;
+            display: none;
+        }
+        
+        .elimination-zone.active {
+            display: block;
+            animation: pulse-red 1s infinite;
+        }
+        
+        @keyframes pulse-red {
+            0%, 100% { 
+                border-color: rgba(255, 0, 0, 0.5);
+                box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+            }
+            50% { 
+                border-color: rgba(255, 0, 0, 1);
+                box-shadow: 0 0 50px rgba(255, 0, 0, 0.8);
+            }
+        }
+        
+        .animal-display {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 10em;
+            pointer-events: none;
+            z-index: 90;
+            filter: drop-shadow(0 0 20px rgba(0, 0, 0, 0.8));
+            animation: floatAnimal 2s ease-in-out infinite;
+        }
+        
+        @keyframes floatAnimal {
+            0%, 100% { transform: translate(-50%, -50%) translateY(0px); }
+            50% { transform: translate(-50%, -50%) translateY(-20px); }
+        }
+        
+        .animal-display.eliminating {
+            animation: eliminateAnimal 1s forwards;
+        }
+        
+        @keyframes eliminateAnimal {
+            0% {
+                transform: translate(-50%, -50%) scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.5) rotate(180deg);
+                opacity: 0.7;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(0) rotate(720deg);
+                opacity: 0;
+            }
+        }
+        
+        .start-button {
+            display: block;
+            margin: 20px auto;
+            padding: 15px 40px;
+            font-size: 1.2em;
+            background: linear-gradient(135deg, #00d4ff 0%, #00ff88 100%);
+            color: #0f0f1e;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
+        }
+        
+        .start-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 8px 30px rgba(0, 255, 136, 0.6);
+        }
+        
+        /* Panel Derecho - Sensores */
+        .sensors-panel {
+            background: rgba(20, 20, 40, 0.9);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            border: 2px solid rgba(0, 212, 255, 0.3);
+        }
+        
+        .sensor-box {
+            background: rgba(30, 30, 50, 0.8);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .sensor-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .sensor-name {
+            font-weight: bold;
+            color: #00d4ff;
+            font-size: 1.1em;
+        }
+        
+        .sensor-led {
+            width: 25px;
+            height: 25px;
+            border-radius: 50%;
+            background: #333;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.5);
+            transition: all 0.3s;
+        }
+        
+        .sensor-led.on {
+            background: #00ff00;
+            box-shadow: 0 0 20px #00ff00;
+            animation: blink 1s infinite;
+        }
+        
+        .sensor-led.off {
+            background: #ff0000;
+            box-shadow: 0 0 10px #ff0000;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .sensor-value {
+            color: #b0b0b0;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+        
+        .circuit-result {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .result-icon {
+            font-size: 4em;
+            margin: 15px 0;
+        }
+        
+        .result-text {
+            font-size: 1.2em;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        
+        .stats {
+            background: rgba(10, 10, 20, 0.8);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+        
+        .stat-row:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-label {
+            color: #00d4ff;
+        }
+        
+        .stat-value {
+            color: #00ff88;
+            font-weight: bold;
+        }
+        
+        /* Efectos de eliminación */
+        .explosion-effect {
+            position: absolute;
+            font-size: 5em;
+            pointer-events: none;
+            z-index: 1000;
+            animation: explode 1.5s forwards;
+        }
+        
+        @keyframes explode {
+            0% {
+                transform: translate(-50%, -50%) scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(3) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        #status {
+            text-align: center;
+            color: #00ff88;
+            padding: 10px;
+            font-size: 1.1em;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="simulador.html" class="back-button">← Volver al Simulador</a>
+        <h1>📹 SENSOR DE CÁMARA CON GESTOS</h1>
+        <p>Detección Inteligente de Cucarachas mediante Reconocimiento de Gestos</p>
+    </div>
+    
+    <div id="status">Cargando modelos de IA...</div>
+    
+    <div class="main-container">
+        <!-- Panel Izquierdo: Guía de Gestos -->
+        <div class="instructions-panel">
+            <div class="panel-title">🤚 Guía de Gestos</div>
+            
+            <div class="gesture-guide">
+                <h3>🤟 3 DEDOS = CUCARACHA</h3>
+                <div class="gesture-emoji">🪳</div>
+                <div class="gesture-desc">
+                    Levanta <strong>3 dedos</strong> para generar una cucaracha. ¡El sistema la eliminará!
+                </div>
+            </div>
+            
+            <div class="gesture-guide" style="background: rgba(100, 50, 50, 0.2); border-left-color: #ff6666;">
+                <h3>🐾 OTROS ANIMALES (Protegidos)</h3>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 10px 0;">
+                    <div style="text-align: center;">
+                        <div>☝️ 1 dedo</div>
+                        <div style="font-size: 2em;">🐕</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div>✌️ 2 dedos</div>
+                        <div style="font-size: 2em;">🐈</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div>🖖 4 dedos</div>
+                        <div style="font-size: 2em;">🦎</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div>✋ 5 dedos</div>
+                        <div style="font-size: 2em;">🐦</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div>✊ Puño</div>
+                        <div style="font-size: 2em;">🐁</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div>👍 Pulgar</div>
+                        <div style="font-size: 2em;">🦗</div>
+                    </div>
+                </div>
+                <div class="gesture-desc" style="margin-top: 10px;">
+                    Estos animales están <strong>protegidos</strong> y NO serán eliminados.
+                </div>
+            </div>
+            
+            <div style="margin-top: 20px; padding: 15px; background: rgba(255, 100, 100, 0.2); border-radius: 10px; border-left: 4px solid #ff6666;">
+                <h3 style="color: #ff6666; margin-bottom: 10px;">⚡ Sistema de Eliminación</h3>
+                <div class="gesture-desc">
+                    <strong>Circuito:</strong> (A AND B) AND (NOT C)<br><br>
+                    <strong>Solo se elimina cucarachas (3 dedos)</strong><br>
+                    • A=1 cuando detectas cucaracha 🪳<br>
+                    • B=1 para confirmar<br>
+                    • C=0 (sin otros animales)<br><br>
+                    ⚠️ Otros animales activan Sensor C y son <strong>protegidos</strong>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Área Central: Cámara -->
+        <div class="camera-section">
+            <div class="video-container">
+                <video class="input_video"></video>
+                <canvas class="output_canvas" width="800px" height="600px"></canvas>
+                <div class="camera-overlay"></div>
+                <div class="camera-hud">
+                    <div>🎥 CÁMARA DE SEGURIDAD</div>
+                    <div id="timestamp"></div>
+                    <div>IA: MEDIAPIPE HANDS</div>
+                </div>
+                <div id="gesture-status">Esperando gesto...</div>
+                <div class="elimination-zone" id="eliminationZone"></div>
+            </div>
+            
+            <button class="start-button" id="startBtn">🎬 ACTIVAR CÁMARA</button>
+        </div>
+        
+        <!-- Panel Derecho: Sensores y Resultados -->
+        <div class="sensors-panel">
+            <div class="panel-title">🔬 Panel de Sensores</div>
+            
+            <div class="sensor-box">
+                <div class="sensor-header">
+                    <span class="sensor-name">SENSOR A</span>
+                    <div class="sensor-led" id="ledA"></div>
+                </div>
+                <div class="sensor-value" id="valueA">Estado: Esperando...</div>
+            </div>
+            
+            <div class="sensor-box">
+                <div class="sensor-header">
+                    <span class="sensor-name">SENSOR B</span>
+                    <div class="sensor-led" id="ledB"></div>
+                </div>
+                <div class="sensor-value" id="valueB">Estado: Esperando...</div>
+            </div>
+            
+            <div class="sensor-box"> (Otros)</span>
+                    <div class="sensor-led" id="ledC"></div>
+                </div>
+                <div class="sensor-value" id="valueC">Estado: Esperando...</div>
+            </div>
+            
+            <div class="sensor-box" style="background: rgba(50, 30, 70, 0.8); border-color: rgba(255, 215, 0, 0.3);">
+                <div class="sensor-header">
+                    <span class="sensor-name" style="color: #ffd700;">ANIMAL ACTUAL</span>
+                    <div id="currentAnimalEmoji" style="font-size: 2em;">❓</div>
+                </div>
+                <div class="sensor-value" id="currentAnimalName" style="color: #ffd700;">Ninguno
+                </div>
+                <div class="sensor-value" id="valueC">Estado: Esperando...</div>
+            </div>
+            
+            <div class="circuit-result">
+                <div style="font-weight: bold; font-size: 1.3em;">RESULTADO DEL CIRCUITO</div>
+                <div class="result-icon" id="resultIcon">⏸️</div>
+                <div class="result-text" id="resultText">Sistema en espera</div>
+            </div>
+            
+            <div class="stats">
+                <div style="text-align: center; font-weight: bold; color: #00ff88; margin-bottom: 10px;">
+                    📊 ESTADÍSTICAS
+        let currentAnimal = null;
+        let currentAnimalElement = null;
+        
+        // Mapeo de gestos a animales
+        const animalMap = {
+            0: { emoji: '🐁', name: 'Ratón', type: 'other' },          // Puño
+            1: { emoji: '🐕', name: 'Perro', type: 'other' },          // 1 dedo
+            2: { emoji: '🐈', name: 'Gato', type: 'other' },           // 2 dedos
+            3: { emoji: '🪳', name: 'Cucaracha', type: 'cockroach' },  // 3 dedos - OBJETIVO
+            4: { emoji: '🦎', name: 'Lagartija', type: 'other' },      // 4 dedos
+            5: { emoji: '🐦', name: 'Pájaro', type: 'other' },         // 5 dedos
+            'thumb': { emoji: '🦗', name: 'Grillo', type: 'other' }    // Solo pulgar
+        };
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Eliminaciones:</span>
+                    <span class="stat-value" id="statEliminations">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Protecciones:</span>
+                    <span class="stat-value" id="statProtections">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Gestos Detectados:</span>
+                    <span class="stat-value" id="statGestures">0</span>
+                </div>
+                <div class="stat-row">
+                    <span class="stat-label">Precisión:</span>
+                    <span class="stat-value" id="statAccuracy">0%</span>
+                </div>
+           Mostrar animal en pantalla
+        function showAnimal(animal) {
+            // Remover animal anterior si existe
+            if (currentAnimalElement) {
+                currentAnimalElement.remove();
+            }
+            
+            // Crear nuevo animal
+            const videoContainer = document.querySelector('.video-container');
+            currentAnimalElement = document.createElement('div');
+            currentAnimalElement.className = 'animal-display';
+            currentAnimalElement.textContent = animal.emoji;
+            videoContainer.appendChild(currentAnimalElement);
+            
+            // Actualizar UI del animal actual
+            document.getElementById('currentAnimalEmoji').textContent = animal.emoji;
+            document.getElementById('currentAnimalName').textContent = animal.name;
+            document.getElementById('currentAnimalName').style.color = animal.type === 'cockroach' ? '#ff6666' : '#00ff88';
+        }
+        
+        // Actualizar UI de sensores
+        function updateSensorUI() {
+            // Sensor A
+            const ledA = document.getElementById('ledA');
+            const valueA = document.getElementById('valueA');
+            if (sensorA === 1) {
+                ledA.className = 'sensor-led on';
+                valueA.textContent = 'Valor: 1 - ✓ Cucaracha detectada';
+                valueA.style.color = '#00ff88';
+            } else {
+                ledA.className = 'sensor-led';
+                valueA.textContent = 'Valor: 0 - Esperando cucaracha';
+                valueA.style.color = '#b0b0b0';
+            }
+            
+            // Sensor B
+            const ledB = document.getElementById('ledB');
+            const valueB = document.getElementById('valueB');
+            if (sensorB === 1) {
+                ledB.className = 'sensor-led on';
+                valueB.textContent = 'Valor: 1 - ✓ Confirmada';
+                valueB.style.color = '#00ff88';
+            } else {
+                ledB.className = 'sensor-led';
+                valueB.textContent = 'Valor: 0 - Esperando confirmación';
+                valueB.style.color = '#b0b0b0';
+            }
+            
+            // Sensor C
+            const ledC = document.getElementById('ledC');
+            const valueC = document.getElementById('valueC');
+            if (sensorC === 1) {
+                ledC.className = 'sensor-led off';
+                valueC.textContent = 'Valor: 1 - ⚠️ Otro animal presente';
+                valueC.style.color = '#ff6666';
+            } else {
+                ledC.className = 'sensor-led';
+                valueC.textContent = 'Valor: 0 - Solo cucarachas
+        
+        // Compuertas lógicas
+        const AND = (a, b) => a && b;
+        const NOT = (a) => !a;
+        
+        // Contar dedos levantados
+        function contarDedos(landmarks) {
+            let dedos = [0, 0, 0, 0, 0];
+            
+            // Pulgar
+            if (landmarks[4].x < landmarks[3].x - 0.05) dedos[0] = 1;
+            
+            // Otros dedos (comparar Y - menor es más arriba)
+            if (landmarks[8].y < landmarks[6].y) dedos[1] = 1;
+            if (landmarks[12].y < landmarks[10].y) dedos[2] = 1;
+            if (landmarks[16].y < landmarks[14].y) dedos[3] = 1;
+            if (landmarks[20].y < landmarks[18].y) dedos[4] = 1;
+            
+            return dedos;
+        }
+        
+        // Actualizar UI de sensores
+        function updateSensorUI() {
+            // Sensor A
+            const ledA = document.getElementById('ledA');
+            const valueA = document.getElementById('valueA');
+            if (sensorA === 1) {
+                ledA.className = 'sensor-led on';
+                valueA.textContent = 'Valor: 1 - ✓ Cucaracha detectada';
+                valueA.style.color = '#00ff88';
+            } else {
+                ledA.className = 'sensor-led';
+                valueA.textContent = 'Valor: 0 - Esperando detección';
+                valueA.style.color = '#b0b0b0';
+            }
+            
+            // Sensor B
+            
+            // Animar eliminación del animal
+            if (currentAnimalElement) {
+                currentAnimalElement.classList.add('eliminating');
+                setTimeout(() => {
+                    if (currentAnimalElement) {
+                        currentAnimalElement.remove();
+                        currentAnimalElement = null;
+                    }
+                    document.getElementById('currentAnimalEmoji').textContent = '💀';
+                    document.getElementById('currentAnimalName').textContent = 'Eliminada';
+                }, 1000);
+            }
+            
+            createExplosionEffect();
+            playEliminationSound();
+            
+            // Resetear después de eliminación
+            setTimeout(() => {
+                document.getElementById('currentAnimalEmoji').textContent = '❓';
+                document.getElementById('currentAnimalName').textContent = 'Ninguno';
+                currentAnimal = null;
+            }, 25alueB.textContent = 'Valor: 0 - Esperando confirmación';
+                valueB.style.color = '#b0b0b0';
+            }
+            
+            // Sensor C
+            const ledC = document.getElementById('ledC');
+            const valueC = document.getElementById('valueC');
+            if (sensorC === 1) {
+                ledC.className = 'sensor-led off';
+                valueC.textContent = 'Valor: 1 - ⚠️ Otro animal presente';
+                valueC.style.color = '#ff6666';
+            } else {
+                ledC.className = 'sensor-led';
+                valueC.textContent = 'Valor: 0 - Área despejada';
+                valueC.style.color = '#b0b0b0';
+            }
+            
+            // Aplicar lógica del circuito: (A AND B) AND (NOT C)
+            const andAB = AND(sensorA, sensorB);
+            const notC = NOT(sensorC);
+            const output = AND(andAB, notC);
+            
+            // Actualizar resultado
+            const resultIcon = document.getElementById('resultIcon');
+            const resultText = document.getElementById('resultText');
+            const eliminationZone = document.getElementById('eliminationZone');
+            
+            if (output === 1) {
+                // SISTEMA ACTIVADO
+                resultIcon.textContent = '💥';
+                resultText.innerHTML = '<span style="color: #ff6666;">⚡ SISTEMA ACTIVADO</span><br>Eliminando cucaracha...';
+                eliminationZone.classList.add('active');
+                
+                // Activar eliminación una sola vez
+                if (!eliminationTimeout) {
+                    eliminationTimeout = setTimeout(() => {
+                        triggerElimination();
+                        eliminationTimeout = null;
+                    }, 1000);
+                }
+            } else if (sensorC === 1) {
+                // PROTEGIDO
+                resultIcon.textContent = '🛡️';
+                resultText.innerHTML = '<span style="color: #00ff88;">✅ SISTEMA DESACTIVADO</span><br>Animal protegido';
+                eliminationZone.classList.remove('active');
+                
+                if (eliminationTimeout) {
+                    clearTimeout(eliminationTimeout);
+                    eliminationTimeout = null;
+                }
+            } else {
+                // ESPERANDO
+                resultIcon.textContent = '⏸️';
+                resultText.textContent = 'Sistema en espera';
+                eliminationZone.classList.remove('active');
+                
+                if (eliminationTimeout) {
+                    clearTimeout(eliminationTimeout);
+                    eliminationTimeout = null;
+                }
+            }
+            
+            // Actualizar estadísticas
+            updateStats();
+        }
+        
+        // Activar eliminación
+        function triggerElimination() {
+            stats.eliminations++;
+            createExplosionrminar tipo de animal según gestos
+                    let animal = null;
+                    let gestureKey = total;
+                    
+                    // Detectar pulgar solo
+                    if (total === 1 && dedos[0] === 1) {
+                        gestureKey = 'thumb';
+                    }
+                    
+                    // Obtener animal del mapa
+                    if (animalMap[gestureKey]) {
+                        animal = animalMap[gestureKey];
+                        
+                        // Solo actualizar si cambió el animal
+                        if (!currentAnimal || currentAnimal.name !== animal.name) {
+                            currentAnimal = animal;
+                            showAnimal(animal);
+                            stats.gestures++;
+                            
+                            // Actualizar sensores según tipo de animal
+                            if (animal.type === 'cockroach') {
+                                // Es cucaracha (3 dedos)
+                                gestureText = `🪳 ${total} dedos - ¡CUCARACHA DETECTADA!`;
+                                sensorA = 1; // Detectada
+                                sensorB = 1; // Confirmada (auto-confirmar)
+                                sensorC = 0; // No hay otros animales
+                            } else {
+                                // Es otro animal (protegido)
+                                gestureText = `${animal.emoji} ${total === 'thumb' ? 'Pulgar' : total + ' dedos'} - ${animal.name} (Protegido)`;
+                                sensorA = 0;
+                                sensorB = 0;
+                                sensorC = 1; // Otro animal presente
+                                stats.protections++;
+                            }
+                        } else {
+                            // Mismo animal, mantener estado
+                            gestureText = `${animal.emoji} ${animal.name}`;
+                        }
+                    } else {
+                        // Gesto no mapeado
+                        gestureText = `${total} dedos - Gesto no reconocido`;
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'square';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+        
+        // Actualizar estadísticas en UI
+        function updateStats() {
+            document.getElementById('statEliminations').textContent = stats.eliminations;
+            document.getElementById('statProtections').textContent = stats.protections;
+            document.getElementById('statGestures').textContent = stats.gestures;
+            
+            const total = stats.eliminations + stats.protections;
+            const accuracy = total > 0 ? Math.round((stats.eliminations / total) * 100) : 0;
+            document.getElementById('statAccuracy').textContent = accuracy + '%';
+        }
+        
+        // Procesar resultados de MediaPipe
+        function onResults(results) {
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            // Dibujar video
+            canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+            
+            let gestureText = "Esperando mano...";
+            let gestureDetected = false;
+            
+            if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    // Dibujar mano
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 4 });
+                    drawLandmarks(canvasCtx, landmarks, { color: '#FF0000', lineWidth: 2, radius: 5 });
+                    
+                    // Contar dedos
+                    const dedos = contarDedos(landmarks);
+                    const total = dedos.reduce((a, b) => a + b, 0);
+                    
+                    gestureDetected = true;
+                    
+                    // Detectar gestos y actualizar sensores
+                    if (total === 1 && dedos[1] === 1) {
+                        // 1 dedo (índice) = Sensor A activado
+                        gestureText = "☝️ 1 Dedo - Cucaracha Detectada (A=1)";
+                        sensorA = 1;
+                        sensorB = 0;
+                        sensorC = 0;
+                        stats.gestures++;
+                    } else if (total === 0) {
+                        // Puño cerrado = Sensor B activado
+                        gestureText = "✊ Puño - Confirmación (B=1)";
+                        sensorA = 1; // Mantener A activo también
+                        sensorB = 1;
+                        sensorC = 0;
+                        stats.gestures++;
+                    } else if (total === 5) {
+                        // Mano abierta = Sensor C activado
+                        gestureText = "✋ Mano Abierta - Otro Animal (C=1)";
+                        sensorA = 0;
+                        sensorB = 0;
+                        sensorC = 1;
+                        stats.gestures++;
+                        stats.protections++;
+                    } else if (total === 2 && dedos[1] === 1 && dedos[2] === 1) {
+                        // Paz - Reset
+                        gestureText = "✌️ Paz - Resetear Sistema";
+                        sensorA = 0;
+                        sensorB = 0;
+                        sensorC = 0;
+                    } else {
+                        gestureText = `${total} dedos - Gesto no reconocido`;
+                        // No cambiar sensores
+                    }
+                    
+                    // Solo procesar la primera mano
+                    break;
+                }
+            } else {
+                // No hay mano detectada - mantener último estado
+                gestureText = "No se detecta mano";
+            }
+            
+            // Actualizar UI
+            gestureStatus.textContent = gestureText;
+            gestureStatus.style.color = gestureDetected ? '#00ff00' : '#ffaa00';
+            
+            // Actualizar sensores solo si hay cambios
+            if (gestureText !== lastGesture) {
+                lastGesture = gestureText;
+                updateSensorUI();
+            }
+            
+            canvasCtx.restore();
+        }
+        
+        // Configurar MediaPipe Hands
+        const hands = new Hands({
+            locateFile: (file) => {
+                return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+            }
+        });
+        
+        hands.setOptions({
+            maxNumHands: 1,
+            modelComplexity: 1,
+            minDetectionConfidence: 0.7,
+            minTrackingConfidence: 0.7
+        });
+        
+        hands.onResults(onResults);
+        
+        // Botón de inicio
+        startBtn.addEventListener('click', async () => {
+            if (!isRunning) {
+                try {
+                    statusDiv.textContent = '📹 Solicitando acceso a la cámara...';
+                    statusDiv.style.color = '#ffaa00';
+                    
+                    // Verificar soporte básico
+                    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                        throw new Error('Tu navegador NO soporta acceso a cámara. Usa Chrome o Edge.');
+                    }
+                    
+                    // IMPORTANTE: Solicitar permisos PRIMERO con getUserMedia
+                    // Esto hace que aparezca el popup de permisos del navegador
+                    console.log('Solicitando permisos de cámara...');
+                    const testStream = await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            width: { ideal: 800 },
+                            height: { ideal: 600 },
+                            facingMode: 'user'
+                        }
+                    });
+                    
+                    console.log('✓ Permisos obtenidos!');
+                    
+                    // Detener el stream temporal
+                    testStream.getTracks().forEach(track => track.stop());
+                    
+                    // Ahora sí, iniciar MediaPipe con permisos ya otorgados
+                    statusDiv.textContent = '⚙️ Inicializando MediaPipe...';
+                    
+                    // Iniciar cámara con MediaPipe Camera
+                    cameraObj = new Camera(videoElement, {
+                        onFrame: async () => {
+                            await hands.send({ image: videoElement });
+                        },
+                        width: 800,
+                        height: 600
+                    });
+                    
+                    // Iniciar cámara
+                    await cameraObj.start();
+                    
+                    // Si llegamos aquí, funcionó
+                    isRunning = true;
+                    startBtn.textContent = '⏹️ DETENER CÁMARA';
+                    startBtn.style.background = 'linear-gradient(135deg, #ff6b6b 0%, #ff8e53 100%)';
+                    statusDiv.innerHTML = '✅ <strong>CÁMARA ACTIVA</strong><br>Muestra gestos con tu mano para generar animales';
+                    statusDiv.style.color = '#00ff88';
+                    
+                    console.log('✓ Sistema completamente iniciado');
+                    
+                } catch (error) {
+                    console.error('Error completo:', error);
+                    
+                    let errorMsg = '';
+                    let solution = '';
+                    
+                    if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                        errorMsg = '🚫 Permiso DENEGADO';
+                        solution = 'Debes hacer clic en "Permitir" cuando el navegador te lo pida.\n\nSi no apareció el mensaje, busca el ícono 🔒 en la barra de direcciones.';
+                    } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                        errorMsg = '📹 NO se encontró cámara';
+                        solution = 'Conecta una webcam o verifica que esté funcionando.';
+                    } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                        errorMsg = '⚠️ Cámara en uso por otra app';
+                        solution = 'Cierra Zoom, Teams, Skype u otras apps de videoconferencia.';
+                    } else if (error.name === 'TypeError' && error.message.includes('Camera')) {
+                        errorMsg = '⚙️ Error de MediaPipe';
+                        solution = 'Recarga la página (F5) e intenta de nuevo.';
+                    } else {
+                        errorMsg = '❌ Error: ' + error.message;
+                        solution = 'Verifica que estés usando http://localhost:8000/sensor-camara.html';
+                    }
+                    
+                    statusDiv.innerHTML = `<strong>${errorMsg}</strong><br><small>${solution}</small>`;
+                    statusDiv.style.color = '#ff6666';
+                    
+                    alert(`❌ ERROR:\n\n${errorMsg}\n\n💡 SOLUCIÓN:\n${solution}`);
+                }
+            } else {
+                // Detener cámara
+                if (cameraObj && cameraObj.stop) {
+                    cameraObj.stop();
+                }
+                location.reload();
+            }
+        });
+        
+        // Mensaje de carga completada
+        setTimeout(() => {
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            
+            if (protocol === 'file:') {
+                // Abierto directamente como archivo
+                statusDiv.innerHTML = '⚠️ <strong>ADVERTENCIA: Archivo abierto localmente</strong><br>' +
+                                    '<small>La cámara NO funciona con file://</small><br><br>' +
+                                    '<strong>SOLUCIONES:</strong><br>' +
+                                    '1️⃣ Ejecuta: <code>python servidor.py</code><br>' +
+                                    '2️⃣ Publica en GitHub Pages (gratis)<br>' +
+                                    '3️⃣ Usa Netlify Drop (arrastra carpeta)<br><br>' +
+                                    '<small>Lee COMO_USAR_CAMARA.md para más info</small>';
+                statusDiv.style.color = '#ffaa00';
+                statusDiv.style.fontSize = '0.9em';
+                statusDiv.style.textAlign = 'left';
+                statusDiv.style.maxWidth = '600px';
+                statusDiv.style.margin = '20px auto';
+            } else if (protocol === 'https:' || hostname === 'localhost' || hostname === '127.0.0.1') {
+                // Conexión segura o localhost - funciona!
+                statusDiv.innerHTML = '✅ <strong>SISTEMA LISTO</strong><br>Presiona el botón para iniciar la cámara';
+                statusDiv.style.color = '#00ff88';
+            } else {
+                // HTTP sin ser localhost
+                statusDiv.innerHTML = '⚠️ <strong>ADVERTENCIA: HTTP no seguro</strong><br>' +
+                                    'La cámara requiere HTTPS. Publica en GitHub Pages o usa localhost.';
+                statusDiv.style.color = '#ffaa00';
+            }
+        }, 2000);
+    </script>
+</body>
+</html>

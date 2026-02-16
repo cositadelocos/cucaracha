@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test de Cámara - Diagnóstico</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a2e;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #00ff88;
+        }
+        
+        #video {
+            width: 640px;
+            height: 480px;
+            background: #000;
+            border: 3px solid #00ff88;
+            border-radius: 10px;
+            margin: 20px auto;
+            display: block;
+        }
+        
+        button {
+            padding: 15px 40px;
+            font-size: 1.2em;
+            background: #00ff88;
+            color: #1a1a2e;
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 10px;
+        }
+        
+        button:hover {
+            background: #00d4ff;
+        }
+        
+        #status {
+            font-size: 1.2em;
+            margin: 20px;
+            padding: 15px;
+            background: rgba(0, 255, 136, 0.2);
+            border-radius: 10px;
+            border: 2px solid #00ff88;
+        }
+        
+        .error {
+            background: rgba(255, 100, 100, 0.2) !important;
+            border-color: #ff6666 !important;
+            color: #ff6666;
+        }
+        
+        .info {
+            background: rgba(0, 212, 255, 0.2);
+            border: 2px solid #00d4ff;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px auto;
+            max-width: 600px;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎥 TEST DE CÁMARA - Diagnóstico</h1>
+    
+    <div class="info">
+        <strong>📋 INSTRUCCIONES:</strong><br>
+        1. Haz clic en "PROBAR CÁMARA"<br>
+        2. El navegador te pedirá permiso<br>
+        3. Haz clic en "Permitir"<br>
+        4. Deberías ver tu video<br><br>
+        <strong>⚠️ Si no funciona:</strong><br>
+        • Verifica que tienes una cámara conectada<br>
+        • Cierra otras apps que usen la cámara (Zoom, Teams, etc.)<br>
+        • Usa Chrome o Edge (mejores navegadores para esto)
+    </div>
+    
+    <button id="startBtn" onclick="startCamera()">🎬 PROBAR CÁMARA</button>
+    <button onclick="stopCamera()" style="display: none;" id="stopBtn">⏹️ DETENER</button>
+    
+    <div id="status">Esperando...</div>
+    
+    <video id="video" autoplay playsinline></video>
+    
+    <div id="diagnostics" style="margin-top: 20px; text-align: left; max-width: 600px; margin: 20px auto;"></div>
+    
+    <script>
+        const video = document.getElementById('video');
+        const status = document.getElementById('status');
+        const diagnostics = document.getElementById('diagnostics');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        let stream = null;
+        
+        // Diagnóstico del navegador
+        function showDiagnostics() {
+            let info = '<div class="info">';
+            info += '<strong>🔍 DIAGNÓSTICO DEL SISTEMA:</strong><br><br>';
+            info += `<strong>Navegador:</strong> ${navigator.userAgent.split(' ').pop()}<br>`;
+            info += `<strong>Protocolo:</strong> ${window.location.protocol}<br>`;
+            info += `<strong>Host:</strong> ${window.location.hostname}<br>`;
+            info += `<strong>Puerto:</strong> ${window.location.port || '(default)'}<br>`;
+            info += `<strong>getUserMedia:</strong> ${navigator.mediaDevices ? '✓ Soportado' : '✗ NO soportado'}<br>`;
+            info += `<strong>Conexión segura:</strong> ${
+                window.location.protocol === 'https:' || 
+                window.location.hostname === 'localhost' || 
+                window.location.hostname === '127.0.0.1' 
+                ? '✓ SÍ' : '✗ NO (REQUERIDO)'
+            }<br>`;
+            info += '</div>';
+            diagnostics.innerHTML = info;
+        }
+        
+        showDiagnostics();
+        
+        async function startCamera() {
+            try {
+                status.textContent = '📹 Solicitando acceso a la cámara...';
+                status.className = '';
+                
+                // Verificar soporte
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                    throw new Error('Tu navegador NO soporta acceso a cámara. Usa Chrome o Edge.');
+                }
+                
+                // Verificar protocolo seguro
+                const isSecure = window.location.protocol === 'https:' || 
+                               window.location.hostname === 'localhost' || 
+                               window.location.hostname === '127.0.0.1';
+                               
+                if (!isSecure) {
+                    throw new Error('Debes usar HTTPS o localhost. Ejecuta: python servidor.py');
+                }
+                
+                // Solicitar cámara
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 640 },
+                        height: { ideal: 480 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+                
+                video.srcObject = stream;
+                
+                status.textContent = '✅ ¡CÁMARA FUNCIONANDO! Si ves tu video, todo está bien.';
+                status.className = '';
+                
+                startBtn.style.display = 'none';
+                stopBtn.style.display = 'inline-block';
+                
+            } catch (error) {
+                status.className = 'error';
+                
+                let errorMsg = '❌ ERROR: ';
+                
+                if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+                    errorMsg += 'Permiso DENEGADO. Debes hacer clic en "Permitir" cuando el navegador te lo pida.';
+                    errorMsg += '\n\n🔧 SOLUCIÓN: Busca el ícono 🔒 o 🎥 en la barra de direcciones y habilita la cámara.';
+                } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+                    errorMsg += 'NO se encontró ninguna cámara conectada.';
+                    errorMsg += '\n\n🔧 SOLUCIÓN: Conecta una webcam o verifica que esté funcionando.';
+                } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+                    errorMsg += 'La cámara está siendo usada por otra aplicación.';
+                    errorMsg += '\n\n🔧 SOLUCIÓN: Cierra Zoom, Teams, Skype u otras apps que usen la cámara.';
+                } else if (error.name === 'OverconstrainedError') {
+                    errorMsg += 'Tu cámara no soporta la configuración solicitada.';
+                } else if (error.name === 'SecurityError') {
+                    errorMsg += 'Error de seguridad. Debes usar HTTPS o localhost.';
+                    errorMsg += '\n\n🔧 SOLUCIÓN: Ejecuta "python servidor.py" en PowerShell.';
+                } else {
+                    errorMsg += error.message;
+                }
+                
+                status.textContent = errorMsg;
+                
+                console.error('Error completo:', error);
+                
+                alert('❌ ERROR DE CÁMARA:\n\n' + errorMsg);
+            }
+        }
+        
+        function stopCamera() {
+            if (stream) {
+                stream.getTracks().forEach(track => track.stop());
+                video.srcObject = null;
+                stream = null;
+                status.textContent = 'Cámara detenida';
+                startBtn.style.display = 'inline-block';
+                stopBtn.style.display = 'none';
+            }
+        }
+        
+        // Detectar si se deniegan permisos
+        navigator.permissions.query({ name: 'camera' })
+            .then(permissionStatus => {
+                console.log('Estado de permisos de cámara:', permissionStatus.state);
+                
+                permissionStatus.onchange = () => {
+                    console.log('Permisos de cámara cambiaron a:', permissionStatus.state);
+                };
+            })
+            .catch(() => {
+                console.log('No se pudo verificar permisos de cámara');
+            });
+    </script>
+</body>
+</html>

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Visual - Trampa para Cucarachas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+        
+        .back-button {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 10px 20px;
+            border: 2px solid white;
+            border-radius: 25px;
+            cursor: pointer;
+            text-decoration: none;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .back-button:hover {
+            background: white;
+            color: #1e3c72;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+            height: calc(100vh - 120px);
+        }
+        
+        /* Panel Izquierdo - Animales Disponibles */
+        .animals-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow-y: auto;
+        }
+        
+        .panel-title {
+            font-size: 1.5em;
+            color: #333;
+            margin-bottom: 20px;
+            text-align: center;
+            font-weight: bold;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .animal-item {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border: 3px solid #667eea;
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: move;
+            text-align: center;
+            transition: all 0.3s;
+            user-select: none;
+        }
+        
+        .animal-item:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.5);
+        }
+        
+        .animal-item.dragging {
+            opacity: 0.5;
+        }
+        
+        .animal-emoji {
+            font-size: 4em;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .animal-name {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 5px;
+        }
+        
+        .animal-type {
+            font-size: 0.9em;
+            color: #666;
+        }
+        
+        /* Área Central - Simulación */
+        .simulation-area {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .camera-view {
+            flex: 1;
+            background: linear-gradient(135deg, #434343 0%, #000000 100%);
+            border: 5px solid #333;
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: inset 0 0 50px rgba(0, 0, 0, 0.8);
+        }
+        
+        .camera-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 255, 0, 0.03) 2px, rgba(0, 255, 0, 0.03) 4px),
+                repeating-linear-gradient(90deg, transparent, transparent 2px, rgba(0, 255, 0, 0.03) 2px, rgba(0, 255, 0, 0.03) 4px);
+            pointer-events: none;
+        }
+        
+        .camera-hud {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #00ff00;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            text-shadow: 0 0 5px #00ff00;
+            z-index: 100;
+        }
+        
+        .trap-zone {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(255, 0, 0, 0.2) 0%, rgba(255, 0, 0, 0) 70%);
+            border: 3px dashed #ff0000;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+        
+        .trap-zone.active {
+            background: radial-gradient(circle, rgba(0, 255, 0, 0.3) 0%, rgba(0, 255, 0, 0) 70%);
+            border-color: #00ff00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.5);
+        }
+        
+        .trap-zone.danger {
+            background: radial-gradient(circle, rgba(255, 0, 0, 0.4) 0%, rgba(255, 0, 0, 0) 70%);
+            border-color: #ff0000;
+            box-shadow: 0 0 30px rgba(255, 0, 0, 0.7);
+            animation: shake 0.5s;
+        }
+        
+        @keyframes shake {
+            0%, 100% { transform: translateX(-50%) rotate(0deg); }
+            25% { transform: translateX(-50%) rotate(-5deg); }
+            75% { transform: translateX(-50%) rotate(5deg); }
+        }
+        
+        .trap-label {
+            color: white;
+            font-weight: bold;
+            font-size: 1.2em;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+        
+        .trap-icon {
+            font-size: 3em;
+            margin-top: 10px;
+        }
+        
+        .animal-in-scene {
+            position: absolute;
+            cursor: move;
+            transition: none;
+            z-index: 50;
+        }
+        
+        .animal-in-scene .animal-emoji {
+            font-size: 5em;
+            filter: drop-shadow(2px 2px 4px rgba(0, 0, 0, 0.5));
+        }
+        
+        /* Panel Derecho - Sensores y Resultados */
+        .control-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            overflow-y: auto;
+        }
+        
+        .sensor-group {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            border: 2px solid #e0e0e0;
+        }
+        
+        .sensor-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .sensor-status {
+            display: inline-block;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #ccc;
+            box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.3);
+            transition: all 0.3s;
+        }
+        
+        .sensor-status.active {
+            background: #00ff00;
+            box-shadow: 0 0 20px #00ff00, inset 0 2px 5px rgba(0, 0, 0, 0.3);
+            animation: pulse 1s infinite;
+        }
+        
+        .sensor-status.inactive {
+            background: #ff0000;
+            box-shadow: 0 0 10px #ff0000, inset 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .sensor-description {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .result-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .result-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            margin-bottom: 15px;
+        }
+        
+        .result-status {
+            font-size: 2.5em;
+            margin: 20px 0;
+        }
+        
+        .result-message {
+            font-size: 1.1em;
+            line-height: 1.5;
+        }
+        
+        .stats-panel {
+            background: #fff;
+            color: #333;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        
+        .stat-label {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .stat-value {
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        
+        .btn-reset {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .btn-reset:hover {
+            background: #ff5252;
+            transform: scale(1.05);
+        }
+        
+        .btn-info {
+            background: #4ecdc4;
+            color: white;
+        }
+        
+        .btn-info:hover {
+            background: #45b8b0;
+            transform: scale(1.05);
+        }
+        
+        /* Efectos de eliminación */
+        .elimination-effect {
+            position: absolute;
+            pointer-events: none;
+            font-size: 3em;
+            animation: explode 1s forwards;
+            z-index: 1000;
+        }
+        
+        @keyframes explode {
+            0% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(3) rotate(360deg);
+                opacity: 0;
+            }
+        }
+        
+        /* Instrucciones */
+        .instructions {
+            background: rgba(102, 126, 234, 0.1);
+            color: #333;
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+            font-size: 0.9em;
+            border: 1px solid #667eea;
+        }
+        
+        .instructions-title {
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <a href="index.html" class="back-button">← Volver a Teoría</a>
+        <h1>🎮 SIMULADOR INTERACTIVO DE TRAMPA</h1>
+        <p>Sistema de Detección y Eliminación Selectiva de Cucarachas</p>
+    </div>
+    
+    <div class="container">
+        <!-- Panel Izquierdo: Animales Disponibles -->
+        <div class="animals-panel">
+            <div class="panel-title">🦗 Banco de Sujetos</div>
+            <div class="instructions">
+                <div class="instructions-title">📋 INSTRUCCIONES:</div>
+                Arrastra los animales hacia la zona de trampa roja en el centro. El sistema evaluará automáticamente si debe activarse.
+            </div>
+            
+            <div class="animal-item" draggable="true" data-type="cockroach">
+                <span class="animal-emoji">🪳</span>
+                <div class="animal-name">Cucaracha #1</div>
+                <div class="animal-type">Objetivo: SÍ</div>
+            </div>
+            
+            <div class="animal-item" draggable="true" data-type="cockroach">
+                <span class="animal-emoji">🦗</span>
+                <div class="animal-name">Cucaracha #2</div>
+                <div class="animal-type">Objetivo: SÍ</div>
+            </div>
+            
+            <div class="animal-item" draggable="true" data-type="cockroach">
+                <span class="animal-emoji">🪲</span>
+                <div class="animal-name">Cucaracha #3</div>
+                <div class="animal-type">Objetivo: SÍ</div>
+            </div>
+            
+            <div class="animal-item" draggable="true" data-type="other">
+                <span class="animal-emoji">🐕</span>
+                <div class="animal-name">Perro</div>
+                <div class="animal-type">Protegido</div>
+            </div>
+            
+            <div class="animal-item" draggable="true" data-type="other">
+                <span class="animal-emoji">🐈</span>
+                <div class="animal-name">Gato</div>
+                <div class="animal-type">Protegido</div>
+            </div>
+            
+            <div class="animal-item" draggable="true" data-type="other">
+                <span class="animal-emoji">🐁</span>
+                <div class="animal-name">Ratón</div>
+                <div class="animal-type">Protegido</div>
+            </div>
+            
+            <div class="animal-item" draggable="true" data-type="other">
+                <span class="animal-emoji">🦎</span>
+                <div class="animal-name">Lagartija</div>
+                <div class="animal-type">Protegido</div>
+            </div>
+            
+            <div class="animal-item" draggable="true" data-type="other">
+                <span class="animal-emoji">🐦</span>
+                <div class="animal-name">Pájaro</div>
+                <div class="animal-type">Protegido</div>
+            </div>
+        </div>
+        
+        <!-- Área Central: Simulación Visual -->
+        <div class="simulation-area">
+            <div class="camera-view" id="cameraView">
+                <div class="camera-overlay"></div>
+                <div class="camera-hud">
+                    <div>🎥 CÁMARA ACTIVA</div>
+                    <div id="timestamp"></div>
+                    <div>MODO: DETECCIÓN</div>
+                </div>
+                
+                <div class="trap-zone" id="trapZone">
+                    <div class="trap-label">ZONA DE ANÁLISIS</div>
+                    <div class="trap-icon">⚠️</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Panel Derecho: Sensores y Resultados -->
+        <div class="control-panel">
+            <div class="panel-title">🔬 Panel de Control</div>
+            
+            <!-- Sensores -->
+            <div class="sensor-group">
+                <div class="sensor-label">
+                    <span>SENSOR A: Detección Inicial</span>
+                    <span class="sensor-status" id="sensorA"></span>
+                </div>
+                <div class="sensor-description" id="sensorADesc">
+                    Esperando... Detecta presencia de cucaracha
+                </div>
+            </div>
+            
+            <div class="sensor-group">
+                <div class="sensor-label">
+                    <span>SENSOR B: Confirmación</span>
+                    <span class="sensor-status" id="sensorB"></span>
+                </div>
+                <div class="sensor-description" id="sensorBDesc">
+                    Esperando... Confirma que es cucaracha
+                </div>
+            </div>
+            
+            <div class="sensor-group">
+                <div class="sensor-label">
+                    <span>SENSOR C: Otros Animales</span>
+                    <span class="sensor-status" id="sensorC"></span>
+                </div>
+                <div class="sensor-description" id="sensorCDesc">
+                    Esperando... Detecta otros animales
+                </div>
+            </div>
+            
+            <!-- Resultado -->
+            <div class="result-panel" id="resultPanel">
+                <div class="result-title">ESTADO DEL SISTEMA</div>
+                <div class="result-status" id="resultIcon">⏸️</div>
+                <div class="result-message" id="resultMessage">
+                    Sistema en espera.<br>
+                    Coloca un animal en la zona de análisis.
+                </div>
+            </div>
+            
+            <!-- Estadísticas -->
+            <div class="stats-panel">
+                <div style="font-weight: bold; margin-bottom: 10px; color: #667eea; text-align: center;">
+                    📊 ESTADÍSTICAS
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Cucarachas Eliminadas:</span>
+                    <span class="stat-value" id="statEliminated">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Otros Animales Protegidos:</span>
+                    <span class="stat-value" id="statProtected">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total de Pruebas:</span>
+                    <span class="stat-value" id="statTotal">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Precisión:</span>
+                    <span class="stat-value" id="statAccuracy">0%</span>
+                </div>
+            </div>
+            
+            <!-- Botones -->
+            <div class="button-group">
+                <button class="btn btn-reset" onclick="resetSimulation()">🔄 Reiniciar</button>
+                <button class="btn btn-info" onclick="showInfo()">ℹ️ Ayuda</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Variables globales
+        let stats = {
+            eliminated: 0,
+            protected: 0,
+            total: 0
+        };
+        
+        let currentAnimalInTrap = null;
+        let draggedElement = null;
+        
+        // Actualizar timestamp
+        function updateTimestamp() {
+            const now = new Date();
+            const timestamp = now.toLocaleTimeString('es-ES', { hour12: false });
+            document.getElementById('timestamp').textContent = `⏰ ${timestamp}`;
+        }
+        setInterval(updateTimestamp, 1000);
+        updateTimestamp();
+        
+        // Compuertas lógicas
+        const AND = (a, b) => a && b;
+        const NOT = (a) => !a;
+        
+        // Drag and Drop desde el panel
+        document.querySelectorAll('.animal-item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                draggedElement = e.target;
+                e.target.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'copy';
+                e.dataTransfer.setData('text/html', e.target.innerHTML);
+                e.dataTransfer.setData('animal-type', e.target.dataset.type);
+            });
+            
+            item.addEventListener('dragend', (e) => {
+                e.target.classList.remove('dragging');
+            });
+        });
+        
+        // Drag over en la cámara
+        const cameraView = document.getElementById('cameraView');
+        cameraView.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+        });
+        
+        // Drop en la cámara
+        cameraView.addEventListener('drop', (e) => {
+            e.preventDefault();
+            
+            const animalType = e.dataTransfer.getData('animal-type');
+            const animalHTML = e.dataTransfer.getData('text/html');
+            
+            // Crear elemento en la escena
+            const animalElement = document.createElement('div');
+            animalElement.className = 'animal-in-scene';
+            animalElement.innerHTML = animalHTML;
+            animalElement.dataset.type = animalType;
+            
+            // Posicionar donde se soltó
+            const rect = cameraView.getBoundingClientRect();
+            const x = e.clientX - rect.left - 40;
+            const y = e.clientY - rect.top - 40;
+            animalElement.style.left = x + 'px';
+            animalElement.style.top = y + 'px';
+            
+            // Hacer draggable dentro de la escena
+            makeInSceneDraggable(animalElement);
+            
+            cameraView.appendChild(animalElement);
+            
+            // Verificar si cayó en la trampa
+            checkIfInTrap(animalElement);
+        });
+        
+        // Hacer elementos arrastrables dentro de la escena
+        function makeInSceneDraggable(element) {
+            let isDragging = false;
+            let currentX;
+            let currentY;
+            let initialX;
+            let initialY;
+            
+            element.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                initialX = e.clientX - element.offsetLeft;
+                initialY = e.clientY - element.offsetTop;
+            });
+            
+            document.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    e.preventDefault();
+                    currentX = e.clientX - initialX;
+                    currentY = e.clientY - initialY;
+                    
+                    element.style.left = currentX + 'px';
+                    element.style.top = currentY + 'px';
+                    
+                    // Verificar continuamente si está en la trampa
+                    checkIfInTrap(element);
+                }
+            });
+            
+            document.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+        }
+        
+        // Verificar si el animal está en la zona de trampa
+        function checkIfInTrap(animalElement) {
+            const trapZone = document.getElementById('trapZone');
+            const animalRect = animalElement.getBoundingClientRect();
+            const trapRect = trapZone.getBoundingClientRect();
+            
+            // Verificar intersección
+            const isInTrap = !(
+                animalRect.right < trapRect.left ||
+                animalRect.left > trapRect.right ||
+                animalRect.bottom < trapRect.top ||
+                animalRect.top > trapRect.bottom
+            );
+            
+            if (isInTrap && currentAnimalInTrap !== animalElement) {
+                currentAnimalInTrap = animalElement;
+                evaluateAnimal(animalElement);
+            } else if (!isInTrap && currentAnimalInTrap === animalElement) {
+                currentAnimalInTrap = null;
+                resetSensors();
+            }
+        }
+        
+        // Evaluar animal en la trampa
+        function evaluateAnimal(animalElement) {
+            const animalType = animalElement.dataset.type;
+            const isCockroach = animalType === 'cockroach';
+            const isOtherAnimal = animalType === 'other';
+            
+            // Simular sensores con lógica del circuito
+            // Sensor A: Detecta presencia de cucaracha
+            const sensorA = isCockroach ? 1 : 0;
+            // Sensor B: Confirma que es cucaracha
+            const sensorB = isCockroach ? 1 : 0;
+            // Sensor C: Detecta otros animales
+            const sensorC = isOtherAnimal ? 1 : 0;
+            
+            // Aplicar circuito lógico: (A AND B) AND (NOT C)
+            const andAB = AND(sensorA, sensorB);
+            const notC = NOT(sensorC);
+            const output = AND(andAB, notC);
+            
+            // Actualizar interfaz de sensores
+            updateSensor('A', sensorA, isCockroach ? 'DETECTADO: Posible cucaracha' : 'NO DETECTADA');
+            updateSensor('B', sensorB, isCockroach ? 'CONFIRMADO: Es cucaracha' : 'NO ES CUCARACHA');
+            updateSensor('C', sensorC, isOtherAnimal ? '⚠️ ALERTA: Otro animal detectado' : 'Despejado');
+            
+            // Mostrar resultado
+            const trapZone = document.getElementById('trapZone');
+            const resultPanel = document.getElementById('resultPanel');
+            const resultIcon = document.getElementById('resultIcon');
+            const resultMessage = document.getElementById('resultMessage');
+            
+            stats.total++;
+            
+            if (output) {
+                // SISTEMA ACTIVADO - Eliminar cucaracha
+                trapZone.classList.add('danger');
+                trapZone.classList.remove('active');
+                resultIcon.textContent = '💥';
+                resultMessage.innerHTML = '<strong style="color: #ff6b6b;">⚡ SISTEMA ACTIVADO</strong><br>Cucaracha eliminada con éxito.<br>Zona segura.';
+                
+                stats.eliminated++;
+                
+                // Efecto de eliminación
+                setTimeout(() => {
+                    createEliminationEffect(animalElement);
+                    animalElement.remove();
+                    currentAnimalInTrap = null;
+                    resetSensors();
+                    trapZone.classList.remove('danger');
+                }, 1500);
+                
+            } else if (isOtherAnimal) {
+                // SISTEMA DESACTIVADO - Proteger otro animal
+                trapZone.classList.add('active');
+                trapZone.classList.remove('danger');
+                resultIcon.textContent = '✅';
+                resultMessage.innerHTML = '<strong style="color: #4ecdc4;">🛡️ SISTEMA DESACTIVADO</strong><br>Otro animal detectado.<br>No se activa la trampa.<br>Animal protegido.';
+                
+                stats.protected++;
+                
+            } else {
+                // SISTEMA DESACTIVADO - No es objetivo
+                trapZone.classList.remove('active', 'danger');
+                resultIcon.textContent = '⏸️';
+                resultMessage.innerHTML = '<strong>⏸️ SISTEMA EN ESPERA</strong><br>No se cumplen las condiciones<br>para activación.';
+            }
+            
+            updateStats();
+        }
+        
+        // Actualizar sensor en la UI
+        function updateSensor(sensor, value, description) {
+            const sensorElement = document.getElementById(`sensor${sensor}`);
+            const sensorDesc = document.getElementById(`sensor${sensor}Desc`);
+            
+            if (value === 1) {
+                sensorElement.classList.add('active');
+                sensorElement.classList.remove('inactive');
+            } else {
+                sensorElement.classList.add('inactive');
+                sensorElement.classList.remove('active');
+            }
+            
+            sensorDesc.textContent = description;
+        }
+        
+        // Reset sensores
+        function resetSensors() {
+            ['A', 'B', 'C'].forEach(sensor => {
+                const sensorElement = document.getElementById(`sensor${sensor}`);
+                sensorElement.classList.remove('active', 'inactive');
+                document.getElementById(`sensor${sensor}Desc`).textContent = 'Esperando...';
+            });
+            
+            document.getElementById('trapZone').classList.remove('active', 'danger');
+            document.getElementById('resultIcon').textContent = '⏸️';
+            document.getElementById('resultMessage').innerHTML = 'Sistema en espera.<br>Coloca un animal en la zona de análisis.';
+        }
+        
+        // Efecto de eliminación
+        function createEliminationEffect(element) {
+            const rect = element.getBoundingClientRect();
+            const cameraRect = cameraView.getBoundingClientRect();
+            
+            // Crear múltiples partículas
+            for (let i = 0; i < 8; i++) {
+                const particle = document.createElement('div');
+                particle.className = 'elimination-effect';
+                particle.textContent = ['💥', '⚡', '✨', '💫'][Math.floor(Math.random() * 4)];
+                particle.style.left = (rect.left - cameraRect.left + rect.width / 2) + 'px';
+                particle.style.top = (rect.top - cameraRect.top + rect.height / 2) + 'px';
+                
+                cameraView.appendChild(particle);
+                
+                setTimeout(() => particle.remove(), 1000);
+            }
+        }
+        
+        // Actualizar estadísticas
+        function updateStats() {
+            document.getElementById('statEliminated').textContent = stats.eliminated;
+            document.getElementById('statProtected').textContent = stats.protected;
+            document.getElementById('statTotal').textContent = stats.total;
+            
+            // Calcular precisión (eliminaciones correctas de cucarachas)
+            const accuracy = stats.total > 0 ? 
+                Math.round((stats.eliminated / stats.total) * 100) : 0;
+            document.getElementById('statAccuracy').textContent = accuracy + '%';
+        }
+        
+        // Reiniciar simulación
+        function resetSimulation() {
+            // Eliminar todos los animales de la escena
+            document.querySelectorAll('.animal-in-scene').forEach(el => el.remove());
+            
+            // Reset estadísticas
+            stats = { eliminated: 0, protected: 0, total: 0 };
+            updateStats();
+            
+            // Reset sensores
+            resetSensors();
+            
+            currentAnimalInTrap = null;
+        }
+        
+        // Mostrar información
+        function showInfo() {
+            alert(`🔬 INFORMACIÓN DEL SISTEMA
+
+📊 LÓGICA DEL CIRCUITO:
+Salida = (A AND B) AND (NOT C)
+
+🔍 SENSORES:
+• Sensor A: Detecta presencia de cucaracha
+• Sensor B: Confirma que es una cucaracha
+• Sensor C: Detecta otros animales
+
+✅ ACTIVACIÓN:
+El sistema SOLO se activa cuando:
+• A = 1 (cucaracha detectada)
+• B = 1 (cucaracha confirmada)
+• C = 0 (NO hay otros animales)
+
+🛡️ PROTECCIÓN:
+Si hay otros animales presentes (C=1),
+el sistema NO se activa, protegiéndolos.
+
+🎮 USO:
+Arrastra animales desde el panel izquierdo
+hacia la zona de trampa roja para probar
+el sistema de detección.`);
+        }
+    </script>
+</body>
+</html>
